@@ -32,3 +32,10 @@ Currently, the CloudFormation template creates Cost Anomaly Detection Monitors a
 - The creation process will start
   - The process should not take more than 10 seconds
 - You're done, you have taken your first step toward avoiding Cost Surprises
+
+## Next Steps
+- Implement a Lambda that pushes an S3 lifecycle policy to all new buckets so that Multipart Upload (MPU) fragments are removed after 7 days (configurable)
+  - push Event Bridge rules to all active regions so that a bucket created in any active region will trigger the above Lambda
+- Implement a Lambda that sets new CloudWatch (CW) Log Group retention to 30 days (configurable) so that any new Log Group created will not fill up forever
+  - push Event Bridge rules to all active regions so that a CW Log Group created in any active region will trigger the above Lambda
+- Implement a Lambda to run weekly (configurable) that will push the previous 2 Event Bridge rules to any newly activated region
