@@ -1,0 +1,135 @@
+# CloudFormation Template for Reasonable Account Defaults
+# This is the root template that is used to deploy the entire stack.
+AWSTemplateFormatVersion: 2010-09-09
+Description: Reasonable Account Defaults
+
+Parameters:
+  EmailParam:
+    Description: "What is the email address to use for alerts and notifications?"
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9]*@[a-zA-Z0-9]*.[a-zA-Z]*$
+  AlertThresholdParam:
+    Description: "What is the threshold you want to be alerted about. For student or Free Tier accounts, recommendation is $0.01 or 1 cent"
+    Type: Number
+    Default: 0.01
+    MinValue: 0.01
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - 
+        Label: 
+          default: "What is the email address you want to receive notifications to?"
+        Parameters: 
+          - EmailParam
+      -
+        Label:
+          default: "What is the threshold you want to be alerted about? For student or Free Tier accounts, recommendation is $0.01 or 1 cent"
+        Parameters:
+          - AlertThresholdParam
+
+Resources:
+# Budgets
+  FreeTier:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Join
+          - "-"
+          - - "Reasonable Account Default Fixed Amount Budget (Forecasted)"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+        TimeUnit: MONTHLY
+        BudgetType: COST
+        BudgetLimit:
+          Amount: !Ref AlertThresholdParam
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 99
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailParam
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailParam
+  AutoAdjust:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Join
+          - "-"
+          - - "Reasonable Account Default AutoUpdate Budget"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+        TimeUnit: MONTHLY
+        BudgetType: COST
+        AutoAdjustData:
+          AutoAdjustType: HISTORICAL
+          HistoricalOptions:
+            BudgetAdjustmentPeriod: 6
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 99
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailParam
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref EmailParam
+
+# Cost Anomaly Detectors
+  AnomalyMonitor:
+    Type: AWS::CE::AnomalyMonitor
+    Properties:
+      MonitorType: DIMENSIONAL
+      MonitorName: Daily-Summary
+      MonitorDimension: SERVICE
+  AnomalySubscription:
+    Type: AWS::CE::AnomalySubscription
+    Properties:
+      SubscriptionName: !Join
+          - "-"
+          - - "SubscriptionName"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Threshold: !Ref AlertThresholdParam
+      Frequency: DAILY
+      MonitorArnList:
+        - !Ref AnomalyMonitor
+      Subscribers:
+        - Type: EMAIL
+          Address: !Ref EmailParam
