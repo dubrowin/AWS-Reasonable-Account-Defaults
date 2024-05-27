@@ -7,7 +7,7 @@ Currently, the CloudFormation template creates Cost Anomaly Detection Monitors a
 
 ## Invocation
 
-- Download the CloudFormation Template
+- [Download the CloudFormation Template](https://github.com/dubrowin/AWS-Reasonable-Account-Defaults/blob/main/account-default-project-OVERALL.yaml)
 - Go to CloudFormation in the AWS Console
 - Click Create Stack
   - Select "Choose an existing template"
