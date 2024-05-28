@@ -5,12 +5,17 @@ Description: Reasonable Account Defaults
 
 Parameters:
   EmailParam:
-    Description: "What is the email address to use for alerts and notifications?"
+    #Description: "What is the email address to use for alerts and notifications?"
     Type: String
     AllowedPattern: ^[a-zA-Z0-9]*@[a-zA-Z0-9]*.[a-zA-Z]*$
   AlertThresholdParam:
-    Description: "What is the threshold you want to be alerted about. For student or Free Tier accounts, recommendation is $0.01 or 1 cent"
+    #Description: "Cost Anomaly Detector Parameter. Used to alert on cost spikes"
     Type: Number
+    Default: 0.01
+    MinValue: 0.01
+  FixedBudgetParam:
+    #Description: "Fixed Budget Parameter. Used to alert based on forecasted monthly spend for all services" 
+    Type: Number  
     Default: 0.01
     MinValue: 0.01
 
@@ -19,18 +24,31 @@ Metadata:
     ParameterGroups: 
       - 
         Label: 
-          default: "What is the email address you want to receive notifications to?"
+          default: "Notification Address"
         Parameters: 
           - EmailParam
       -
         Label:
-          default: "What is the threshold you want to be alerted about? For student or Free Tier accounts, recommendation is $0.01 or 1 cent"
+          default: "Spend Thresholds"
         Parameters:
           - AlertThresholdParam
+          - FixedBudgetParam
+      #-
+        #Label:
+          #default: "Fixed Budget Threshold: What is the forecasted budget amount per month that you want to be alerted about. (For student or Free Tier accounts, the recommendation is the default) <A HREF=https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets>Learn More</A>"
+        #Parameters:
+    ParameterLabels:
+      EmailParam:
+        default: "Email Address to receive notification alerts"
+      AlertThresholdParam:
+        default: "Cost Anomaly Detector Parameter. Used to alert on cost spikes (for student or Free Tier accounts, the recommendation is to use the default)"
+      FixedBudgetParam:
+        default: "Fixed Budget Threshold: What is the forecasted budget amount per month that you want to be alerted about. (For student or Free Tier accounts, the recommendation is the default) [https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets] " 
+        #<A HREF=https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets>Learn More</A>
 
 Resources:
 # Budgets
-  FreeTier:
+  FixedBudget:
     Type: AWS::Budgets::Budget
     Properties:
       Budget:
@@ -49,7 +67,7 @@ Resources:
         TimeUnit: MONTHLY
         BudgetType: COST
         BudgetLimit:
-          Amount: !Ref AlertThresholdParam
+          Amount: !Ref FixedBudgetParam
           Unit: USD
       NotificationsWithSubscribers:
         - Notification:
