@@ -35,6 +35,7 @@ Currently, the CloudFormation template creates Cost Anomaly Detection Monitors a
 
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
+- ~~A Cloudtrail trail is required by the Lambdas below. So I have created a Lambda that runs once and checks if there is a Cloudtrail Trail enabled. If not, it will create it.~~ - Done
 - Implement a Lambda that pushes an S3 lifecycle policy to all new buckets so that Multipart Upload (MPU) fragments are removed after 7 days (configurable)
   - push Event Bridge rules to all active regions so that a bucket created in any active region will trigger the above Lambda
 - Implement a Lambda that sets new CloudWatch (CW) Log Group retention to 30 days (configurable) so that any new Log Group created will not fill up forever
