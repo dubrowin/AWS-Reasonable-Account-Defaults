@@ -151,3 +151,448 @@ Resources:
       Subscribers:
         - Type: EMAIL
           Address: !Ref EmailParam
+
+  ## CloudTrail Lambda  
+  ##  - This is created and then invoked, it checks if Cloudtrail is enabled on any of the enabled regions, if there is a CloudTrail, it will exit. If there is no Cloudtrail, it will setup a default trail
+  ##  - Cloudtrail is required for the Event Bridge rules that will invoke the S3 Bucket and CW Log Lambdas since they trap Cloudtrail events. 
+  ##  - The first Cloudtrail trail is free, so this should not incur a cost other than some S3 bucket storage costs.
+  IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole98371b9437764fd7b9c3bf6c2d311d75007RUo0:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Join
+          - "-"
+          - - "AWSLambdaBasicExecutionRole"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Path: "/service-role/"
+      Description: ""
+      Groups: []
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource: !Join
+          - "-"
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/CloudtrailSetup" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+        #- Resource: { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/CloudtrailSetup-${AWS::StackId}:*" }
+          Action: "logs:CreateLogGroup"
+          Effect: "Allow"
+        - Resource: !Join
+          - ""
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/CloudtrailSetup-" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+            - :*
+          Action:
+          - "logs:CreateLogStream"
+          - "logs:PutLogEvents"
+          Effect: "Allow"
+      #Roles:
+      #- "CloudtrailSetup-role-zkreh9rz"
+        #Fn::GetAtt:
+        #- "IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax"
+        #- "Arn"
+        #- Ref: "IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax"
+        #- Ref: "IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole98371b9437764fd7b9c3bf6c2d311d75007RUo0"
+      Users: []
+  LambdaFunction00CloudtrailSetup008js0b:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      MemorySize: 512
+      Description: ""
+      TracingConfig:
+        Mode: "PassThrough"
+      Timeout: 120
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: "Auto"
+      Handler: "index.lambda_handler"
+      Code:
+        ZipFile:  |
+          import json
+          import boto3
+          import cfnresponse
+
+          def lambda_handler(event, context):
+
+            # Create a Session object
+
+            session = boto3.Session()
+
+
+            # List all enabled regions
+
+            ##enabled_regions = session.get_available_regions('cloudtrail')
+            # Get Enabled Region List
+    
+            # Boto Setup
+            account_client = boto3.client('account')
+            enabled_regions = account_client.list_regions(RegionOptStatusContains=['ENABLED', 'ENABLED_BY_DEFAULT'])
+            print ([x["RegionName"] for x in enabled_regions["Regions"]])
+
+            results = []
+    
+            template_bucket_policy = {
+
+            "Version": "2012-10-17",
+
+            "Statement": [
+              {
+                "Sid": "AWSCloudTrail",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "cloudtrail.amazonaws.com"
+                },
+                "Action": "s3:GetBucketAcl",
+                "Resource": "arn:aws:s3:::$bucket_name",
+              },
+              {
+                "Sid": "AWSCloudTrailWrite",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "cloudtrail.amazonaws.com"
+                },
+                "Action": "s3:PutObject",
+                "Resource": "arn:aws:s3:::$bucket_name/AWSLogs/$account_id/*",
+                "Condition": {
+                  "StringEquals": {
+                      "s3:x-amz-acl": "bucket-owner-full-control",
+                    }
+                  }
+                }
+              ]
+            }
+
+            #print ("enabled_regions", enabled_regions)
+            # Iterate over enabled regions
+
+            region_list=[region["RegionName"] for region in enabled_regions["Regions"]]
+    
+            print ("event", event)
+    
+            #local_region = event["detail"]["requestParameters"]["AWS_REGION"]
+            local_region = context.invoked_function_arn.split(':')[3]
+            region=local_region
+            region_name=local_region
+            #local_region=Regions.fromName(System.getenv("AWS_REGION"))
+            print ("local_region", local_region, "region", region)
+    
+            for region in region_list:
+              # Create a CloudTrail client for the current region
+              #print ('Testing region ', region)
+              cloudtrail_client = session.client('cloudtrail', region_name=region)
+              #cloudtrail_client = session.client('cloudtrail')
+        
+              # Get a list of existing trails
+              try:
+                #trails = cloudtrail_client.describe_trails()['trailList']
+                trails = cloudtrail_client.list_trails()['Trails']
+
+
+                # Check if any trail exists in the current region
+
+                trail_exists = bool(trails)
+            
+                results.append({ 'Region': region, 'TrailExists': trail_exists })
+        
+              except Exception as e:
+
+                # Handle any exceptions that may occur
+                print(f"Error in region {region}: {e}")
+                cfnresponse.send(event, context, cfnresponse.FAILED, "Error in region {region}: {e}")
+
+            if not trail_exists:
+
+              # Create a default CloudTrail trail
+              # First Create the S3 Bucket
+        
+              #bucket_name = 'your-bucket-name'
+              account_id = context.invoked_function_arn.split(':')[4]
+              bucket_name = "cloudtrail-logs-" + str(account_id) + "-" + local_region
+              #str1 + " " + str2
+
+              print("bucket_name", bucket_name)
+
+              # Create the bucket
+    
+              s3 = boto3.client('s3')
+
+              try:
+                s3.create_bucket(
+
+                  Bucket=bucket_name,
+
+                  CreateBucketConfiguration={
+
+                      'LocationConstraint': local_region  # e.g., 'us-east-1'
+
+                  }
+
+                )
+        
+                print(f'Bucket {bucket_name} created successfully.')
+            
+        
+                # Add A Bucket Policy
+
+                # Define the replacement function
+
+                replace_vars = lambda s: s.replace("$bucket_name", bucket_name).replace("$account_id", account_id).replace("$local_region", local_region)
+
+
+                # Replace variables in the JSON object
+
+                replaced_policy = json.loads(json.dumps(template_bucket_policy), object_hook=lambda d: {replace_vars(k): replace_vars(v) if isinstance(v, str) else v for k, v in d.items()})
+
+
+                # Print the modified JSON object
+
+                bucket_policy = json.dumps(replaced_policy, indent=4)
+                #print("bucket_policy", bucket_policy)
+
+                # Set the bucket policy
+            
+                try:
+
+                  s3.put_bucket_policy(
+
+                      Bucket=bucket_name,
+
+                      Policy=bucket_policy
+
+                  )
+                
+                  print(f'Bucket {bucket_name} policy created successfully.')
+
+                except Exception as e:
+
+                  # Handle any exceptions that may occur
+                  print(f"Error creating bucket policy {bucket_name}: {e}")    
+                  cfnresponse.send(event, context, cfnresponse.FAILED, "Error creating bucket policy {bucket_name}: {e}")
+
+              except Exception as e:
+
+                # Handle any exceptions that may occur
+                print(f"Error creating bucket {bucket_name}: {e}")
+                cfnresponse.send(event, context, cfnresponse.FAILED, "Error creating bucket {bucket_name}: {e}")
+
+            
+              # Define the trail configuration
+
+              trail_name = event.get('TrailName', f'default-cloudtrail-{region_name}')
+              s3_bucket_name = event.get('S3BucketName', f'cloudtrail-logs-{account_id}-{region_name}')
+              is_multi_region_trail = event.get('IsMultiRegionTrail', True) 
+              include_global_service_events = event.get('IncludeGlobalServiceEvents', True)
+              read_write_type = event.get('ReadWriteType', 'All')  # All, ReadOnly, or WriteOnly
+
+              try:
+                # Create the CloudTrail trail
+                cloudtrail_client = session.client('cloudtrail', region_name=local_region)
+                conn_region = cloudtrail_client.meta.region_name
+                print(f"The CloudTrail client is connected to the {conn_region} region.")
+
+                cloudtrail_client.create_trail(
+
+                  Name=trail_name,
+                  S3BucketName=s3_bucket_name,
+                  IsMultiRegionTrail=is_multi_region_trail,
+                  IncludeGlobalServiceEvents=include_global_service_events,
+                  EnableLogFileValidation=True #,
+                  #ReadWriteType='All'
+
+                )
+
+                print(f"Created a default CloudTrail trail in {region} region: {trail_name}")
+                results="Created a default CloudTrail trail in {region} region: {trail_name}"
+
+              except Exception as e:
+                # Handle any exceptions that may occur
+                print(f"Error in region {region}: {e}")
+                cfnresponse.send(event, context, cfnresponse.FAILED, "Error in region {region}: {e}")
+
+              # Append the result to the results list
+
+
+            #return results
+            #return {
+              #'statusCode': 200,
+              #'body': (results)
+            #}
+
+            responseData = {'statusCode': 200, 'body': results}
+            print(f"Results  OK {results}")
+            #cfnresponse.send(event, context, cfnresponse.SUCCESS)
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "Success: {results}")
+            #cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+
+      Role:
+        Fn::GetAtt:
+        - "IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax"
+        - "Arn"
+      FileSystemConfigs: []
+      FunctionName: !Join
+          - "-"
+          - - "CloudtrailSetup"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Runtime: "python3.12"
+      PackageType: "Zip"
+      LoggingConfig:
+        LogFormat: "Text"
+        LogGroup: !Join
+          - "-"
+          - - "/aws/lambda/CloudtrailSetup"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      EphemeralStorage:
+        Size: 512
+      Architectures:
+      - "arm64"
+  LogGroupRetention:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join
+          - "-"
+          - - "/aws/lambda/CloudtrailSetup"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      RetentionInDays: 30
+  IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      ManagedPolicyArns:
+      - Ref: "IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole98371b9437764fd7b9c3bf6c2d311d75007RUo0"
+      MaxSessionDuration: 3600
+      RoleName: !Join
+          - "-"
+          - - "CloudtrailSetup-role"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Policies:
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "cloudtrail:ListTrails"
+            - "cloudtrail:CreateTrail"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: !Join
+          - "-"
+          - - "CloudTrail-ListTrails"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action: "account:ListRegions"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: !Join
+          - "-"
+          - - "ListRegions"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "s3:PutBucketAcl"
+            - "s3:CreateBucket"
+            - "s3:PutBucketPolicy"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: "S3-create-bucket"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "lambda.amazonaws.com"
+  
+  InvokeLambda:
+    Type: AWS::CloudFormation::CustomResource
+    DeletionPolicy: Retain
+    Properties:
+      ServiceToken: !GetAtt LambdaFunction00CloudtrailSetup008js0b.Arn
+      # You can pass any additional parameters to the Lambda function here
+      # For example:
+      # ParamName: param value
+Outputs:
+  LambdaInvocationResult:
+    Value: !Ref InvokeLambda
+
+  ##TestCustomResource:
+    ##Type: "Custom::TestCustomResource"
+    ##Properties:
+      ##ServiceToken: !GetAtt LambdaFunction00CloudtrailSetup008js0b.Arn
+      ###ServiceToken: "ARN of the target Lambda Function"
+      ##Parameter1: "string"
