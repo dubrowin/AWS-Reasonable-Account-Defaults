@@ -423,6 +423,16 @@ Resources:
 
                 )
 
+                try:
+                  # Start logging for the trail
+                  cloudtrail_client.start_logging(
+                    Name=trail_name
+                  )
+            
+                except Exception as e:
+                  # Handle any exceptions that may occur
+                  print(f"Error in region {region}: {e}")
+
                 print(f"Created a default CloudTrail trail in {region} region: {trail_name}")
                 results="Created a default CloudTrail trail in {region} region: {trail_name}"
 
@@ -526,6 +536,7 @@ Resources:
             Action:
             - "cloudtrail:ListTrails"
             - "cloudtrail:CreateTrail"
+            - "cloudtrail:StartLogging"
             Effect: "Allow"
             Sid: "VisualEditor0"
         PolicyName: !Join
