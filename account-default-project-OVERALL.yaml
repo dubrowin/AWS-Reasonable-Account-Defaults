@@ -18,6 +18,32 @@ Parameters:
     Type: Number  
     Default: 0.01
     MinValue: 0.01
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1096
+      - 1827
+      - 2192
+      - 2557
+      - 2922
+      - 3288
+      - 3653
 
 Metadata: 
   AWS::CloudFormation::Interface: 
@@ -33,7 +59,11 @@ Metadata:
         Parameters:
           - AlertThresholdParam
           - FixedBudgetParam
-      #-
+      -
+        Label:
+          default: "Log Retention"
+        Parameters:
+          - LogRetentionDays
         #Label:
           #default: "Fixed Budget Threshold: What is the forecasted budget amount per month that you want to be alerted about. (For student or Free Tier accounts, the recommendation is the default) <A HREF=https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets>Learn More</A>"
         #Parameters:
@@ -45,9 +75,13 @@ Metadata:
       FixedBudgetParam:
         default: "Fixed Budget Threshold: What is the forecasted budget amount per month that you want to be alerted about. (For student or Free Tier accounts, the recommendation is the default) [https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets] " 
         #<A HREF=https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets>Learn More</A>
+      LogRetentionDays:
+        default: "How many days CW Log Groups will be set to retain data. Default of 30 should generally be good enough"
 
 Resources:
-# Budgets
+  ################################
+  # Budgets
+  ################################
   FixedBudget:
     Type: AWS::Budgets::Budget
     Properties:
@@ -122,7 +156,9 @@ Resources:
             - SubscriptionType: EMAIL
               Address: !Ref EmailParam
 
-# Cost Anomaly Detectors
+  ################################
+  # Cost Anomaly Detectors
+  ################################
   AnomalyMonitor:
     Type: AWS::CE::AnomalyMonitor
     Properties:
@@ -152,16 +188,20 @@ Resources:
         - Type: EMAIL
           Address: !Ref EmailParam
 
+  ################################
   ## CloudTrail Lambda  
+  ################################
+
   ##  - This is created and then invoked, it checks if Cloudtrail is enabled on any of the enabled regions, if there is a CloudTrail, it will exit. If there is no Cloudtrail, it will setup a default trail
   ##  - Cloudtrail is required for the Event Bridge rules that will invoke the S3 Bucket and CW Log Lambdas since they trap Cloudtrail events. 
   ##  - The first Cloudtrail trail is free, so this should not incur a cost other than some S3 bucket storage costs.
+
   IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole98371b9437764fd7b9c3bf6c2d311d75007RUo0:
     Type: "AWS::IAM::ManagedPolicy"
     Properties:
       ManagedPolicyName: !Join
           - "-"
-          - - "AWSLambdaBasicExecutionRole"
+          - - "AWSLambdaBasicExecutionRole-CloudTrail"
             - !Select
               - 0
               - !Split
@@ -597,6 +637,307 @@ Resources:
       # You can pass any additional parameters to the Lambda function here
       # For example:
       # ParamName: param value
+  ################################
+  ## Log Retention
+  ################################
+  IAMRole00CWLogrolekgk39i6m00ZnfTs:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      ManagedPolicyArns: 
+       - Ref: "IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole05ae902e82be47b29f6df4adf563457e00HVNll"
+      MaxSessionDuration: 3600
+      RoleName: !Join
+          - "-"
+          - - "CW-Log-role"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Policies:
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "logs:DescribeLogGroups"
+            - "logs:PutRetentionPolicy"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: !Join
+          - "-"
+          - - "CWLogRetentionPush"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "lambda.amazonaws.com"
+  LogGroupRetention2:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join
+        - "-"
+        - - "/aws/lambda/CW-Log"
+          - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+      RetentionInDays: !Ref LogRetentionDays
+  LambdaFunction00CWLog00Eude6:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      MemorySize: 512
+      Description: ""
+      TracingConfig:
+        Mode: "PassThrough"
+      Timeout: 120
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: "Auto"
+      Handler: "index.lambda_handler"
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import json
+
+          def lambda_handler(event, context):
+
+            # Print Event Data to see what is coming in
+            print('## EVENT')
+            print(event)
+
+            # Get the log group name and AWS region from the event data
+
+            #log_group_name = event.get('logGroupName')
+            #log_group_name = event['logGroupName']
+            log_group_name = event["detail"]["requestParameters"]["logGroupName"]
+            print('log_group_name')
+            print(log_group_name)
+
+            # Get the region the log was created
+            #aws_region = event.get('awsRegion', 'us-east-1')  # Default to us-east-1 if not provided
+            aws_region = event["detail"]["awsRegion"]
+    
+            print('aws_region')
+            print(aws_region)
+    
+            # Get the RETENTION Environment Variable
+            retention = int(os.environ.get('RETENTION', 'default_value'))
+            #retention = int(reten)
+            print(f"Value of RETENTION is: {retention}")
+
+            # Create CloudWatchLogs client with the specified region
+
+            logs_client = boto3.client('logs', region_name=aws_region)
+
+            try:
+
+            # Set the retention policy to retention days
+
+              logs_client.put_retention_policy(
+
+              logGroupName=log_group_name,
+              retentionInDays=retention
+              )
+
+              print(f"Log retention policy set to {retention} days for log group: {log_group_name} in region: {aws_region}")
+
+            except Exception as e:
+
+              print(f"Error setting log retention policy: {e}")
+
+            return {
+
+              'statusCode': 200,
+              'body': 'Lambda function executed successfully'
+            }
+
+      Role:
+        Fn::GetAtt:
+        - "IAMRole00CWLogrolekgk39i6m00ZnfTs"
+        - "Arn"
+      FileSystemConfigs: []
+      FunctionName: !Join
+          - "-"
+          - - "CW-Log"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Runtime: "python3.12"
+      PackageType: "Zip"
+      LoggingConfig:
+        LogFormat: "Text"
+        LogGroup: !Join
+          - "-"
+          - - "/aws/lambda/CW-Log"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Environment:
+        Variables:
+          RETENTION: !Ref LogRetentionDays
+      EphemeralStorage:
+        Size: 512
+      Architectures:
+      - "arm64"
+  IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole05ae902e82be47b29f6df4adf563457e00HVNll:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Join
+          - "-"
+          - - "AWSLambdaBasicExecutionRole-LogRetention"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Path: "/service-role/"
+      Description: ""
+      Groups: []
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource: !Join
+          - "-"
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:/aws/lambda/CW-Log" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+        #- Resource: { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*" }
+          Action: "logs:CreateLogGroup"
+          Effect: "Allow"
+        - Resource: !Join
+          - ""
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/CW-Log-" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+            - :*
+          Action:
+          - "logs:CreateLogStream"
+          - "logs:PutLogEvents"
+          Effect: "Allow"
+      #Roles:
+      #- Ref: "IAMRole00CWLogrolekgk39i6m00ZnfTs"
+      Users: []
+  EventsRule00ruleCWLogGroupCreation00IHTUK:
+    Type: "AWS::Events::Rule"
+    Properties:
+      EventBusName: default
+        #Ref: "EventsEventBus00default00HBVmY"
+      EventPattern:
+        detail-type:
+        - "AWS API Call via CloudTrail"
+        source:
+        - "aws.logs"
+        detail:
+          eventSource:
+          - "logs.amazonaws.com"
+          eventName:
+          - "CreateLogGroup"
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - "LambdaFunction00CWLog00Eude6"
+          - "Arn"
+        Id: "Id452bb793-7ba3-49d8-bc98-ad7b060e42d0"
+      #Id: "CWLog-GroupCreation"
+      State: "ENABLED"
+      Name: !Join
+          - "-"
+          - - "CWLog-GroupCreation"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+  #EventsEventBus00default00HBVmY:
+    #Type: "AWS::Events::EventBus"
+    #Properties:
+      #Tags: []
+      #Name: default
+      #!Join
+          #- "-"
+          #- - "default"
+            #- !Select
+              #- 0
+              #- !Split
+                #- "-"
+                #- !Select
+                  #- 2
+                  #- !Split
+                    #- "/"
+                    #- !Ref "AWS::StackId"
+  LambdaPermission00functionCWLog00RAsbF:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+        - "LambdaFunction00CWLog00Eude6"
+        - "Arn"
+      Action: "lambda:InvokeFunction"
+      SourceArn:
+        #Ref: "EventsRule00ruleCWLogGroupCreation00IHTUK"
+        Fn::GetAtt:
+          - "EventsRule00ruleCWLogGroupCreation00IHTUK"
+          - "Arn"
+      Principal: "events.amazonaws.com"
+
+# Outputs
 Outputs:
   LambdaInvocationResult:
     Value: !Ref InvokeLambda
