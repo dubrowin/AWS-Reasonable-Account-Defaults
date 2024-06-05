@@ -273,6 +273,7 @@ Resources:
           import json
           import boto3
           import cfnresponse
+          import os
 
           def lambda_handler(event, context):
 
@@ -280,6 +281,9 @@ Resources:
 
             session = boto3.Session()
 
+            # Set CFINVOKE to True if called from CloudFormation
+            CFINVOKE = True if event.get("RequestType") == "Create" else False
+            print(f"Value of CFINVOKE is: {CFINVOKE}")
 
             # List all enabled regions
 
@@ -483,18 +487,22 @@ Resources:
 
               # Append the result to the results list
 
+            if CFINVOKE == True:
+              print(f"CFINVOKE is {CFINVOKE}, responding with cfnresponse")
+              responseData = {'statusCode': 200, 'body': results}
+              print(f"Results  OK {results}")
+              #cfnresponse.send(event, context, cfnresponse.SUCCESS)
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "Success: {results}")
+              #cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
 
-            #return results
-            #return {
-              #'statusCode': 200,
-              #'body': (results)
-            #}
-
-            responseData = {'statusCode': 200, 'body': results}
-            print(f"Results  OK {results}")
-            #cfnresponse.send(event, context, cfnresponse.SUCCESS)
-            cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "Success: {results}")
-            #cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+            else:
+              print(f"CFINVOKE is {CFINVOKE}, respnding with Normal Lambda resopnse")
+  
+              #return results
+              return {
+                'statusCode': 200,
+                'body': (results)
+              }
 
       Role:
         Fn::GetAtt:
