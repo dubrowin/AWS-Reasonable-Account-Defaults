@@ -50,12 +50,22 @@ Currently, the CloudFormation template creates Cost Anomaly Detection Monitors a
 - CloudWatch Log Group Retention
   - An Event Bridge Rule is added to the default Event Bridge Bus that traps all CloudWatch Log Group Creations and triggers the Lambda.
   - The Lambda that is deployed takes the Log Group from the event information and sets the Retention to what retention period was established when the CloudFormation template was run. This Lambda only finds Log Groups as creation, if the retention is changed later or if the Log Group existed already, the Lambda will not modify them.
+- S3 Multipart Upload (MPU) Retention
+  - An Event Bridge Rule is added to the default Event Bride Bus that traps all S3 Bucket Creations and triggers the Lambda.
+  - The Lambda that is deployed takes the S3 Bucket from the event information and creates a Lifecycle Policy that deletes MPU Fragments after 7 days.
+- Multi-Region / New Region Activation
+  - In order for CloudWatch Log Groups and S3 Buckets created in regions other than the primary deployment to trigger the Lambdas, Event Bridge rules are deployed to all enabled regions by a Lambda.
+  - The Lambda goes through all enabled regions other than the primary deployed region and if the Event Bridge forwarding rules are found, does nothing. If rules are not found, it creates them. This Lambda is scheduled to run regularly (as defined in the parameters) so that it will catch any newly enabled regions.
    
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
 - ~~A Cloudtrail trail is required by the Lambdas below. So I have created a Lambda that runs once and checks if there is a Cloudtrail Trail enabled. If not, it will create it.~~ - Done
-- Implement a Lambda that pushes an S3 lifecycle policy to all new buckets so that Multipart Upload (MPU) fragments are removed after 7 days (configurable)
-  - push Event Bridge rules to all active regions so that a bucket created in any active region will trigger the above Lambda
+- ~~Implement a Lambda that pushes an S3 lifecycle policy to all new buckets so that Multipart Upload (MPU) fragments are removed after 7 days~~ (configurable) - Done
+  - ~~push Event Bridge rules to all active regions so that a bucket created in any active region will trigger the above Lambda~~ - Done
 - ~~Implement a Lambda that sets new CloudWatch (CW) Log Group retention to 30 days (configurable) so that any new Log Group created will not fill up forever~~ - Done
-  - push Event Bridge rules to all active regions so that a CW Log Group created in any active region will trigger the above Lambda
-- Implement a Lambda to run weekly (configurable) that will push the previous 2 Event Bridge rules to any newly activated region
+  - ~~push Event Bridge rules to all active regions so that a CW Log Group created in any active region will trigger the above Lambda~~ - Done
+- ~~Implement a Lambda to run weekly (configurable) that will push the previous 2 Event Bridge rules to any newly activated region~~ - Done
+- Testing ability
+  - automate the testing and cleanup of the resources deployed
+- IAM Security Hardening
+ - go through all the IAM permissions created and ensure they are only allowing required permissions and are scope limited to the required resources.  
