@@ -1,20 +1,16 @@
 # CloudFormation Template for Reasonable Account Defaults
-# This is the root template that is used to deploy the entire stack.
 AWSTemplateFormatVersion: 2010-09-09
 Description: Reasonable Account Defaults
 
 Parameters:
   EmailParam:
-    #Description: "What is the email address to use for alerts and notifications?"
     Type: String
     AllowedPattern: ^[a-zA-Z0-9]*@[a-zA-Z0-9]*.[a-zA-Z]*$
   AlertThresholdParam:
-    #Description: "Cost Anomaly Detector Parameter. Used to alert on cost spikes"
     Type: Number
     Default: 0.01
     MinValue: 0.01
   FixedBudgetParam:
-    #Description: "Fixed Budget Parameter. Used to alert based on forecasted monthly spend for all services" 
     Type: Number  
     Default: 0.01
     MinValue: 0.01
@@ -44,6 +40,16 @@ Parameters:
       - 2922
       - 3288
       - 3653
+  EventBridgeNumber:
+    Type: String
+    AllowedValues:
+      - days
+      - hours
+      - minutes
+    Default: days
+  EventBridgeRate:
+    Type: Number
+    Default: 1
 
 Metadata: 
   AWS::CloudFormation::Interface: 
@@ -64,9 +70,11 @@ Metadata:
           default: "Log Retention"
         Parameters:
           - LogRetentionDays
-        #Label:
-          #default: "Fixed Budget Threshold: What is the forecasted budget amount per month that you want to be alerted about. (For student or Free Tier accounts, the recommendation is the default) <A HREF=https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets>Learn More</A>"
-        #Parameters:
+      - Label:
+          default: Select How often the EventBridge Rule Lambda will look for new Regions
+        Parameters:
+          - EventBridgeNumber
+          - EventBridgeRate
     ParameterLabels:
       EmailParam:
         default: "Email Address to receive notification alerts"
@@ -74,9 +82,10 @@ Metadata:
         default: "Cost Anomaly Detector Parameter. Used to alert on cost spikes (for student or Free Tier accounts, the recommendation is to use the default)"
       FixedBudgetParam:
         default: "Fixed Budget Threshold: What is the forecasted budget amount per month that you want to be alerted about. (For student or Free Tier accounts, the recommendation is the default) [https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets] " 
-        #<A HREF=https://catalog.us-east-1.prod.workshops.aws/workshops/86e30fc2-daf4-4708-8720-347e2b312075/en-US/foundations/1-budgets>Learn More</A>
       LogRetentionDays:
         default: "How many days CW Log Groups will be set to retain data. Default of 30 should generally be good enough"
+      EventBridgeNumber:
+        default: "Select How often the EventBridge Rule Lambda will look for new Regions"
 
 Resources:
   ################################
@@ -229,7 +238,6 @@ Resources:
                   - !Split
                     - "/"
                     - !Ref "AWS::StackId"
-        #- Resource: { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/CloudtrailSetup-${AWS::StackId}:*" }
           Action: "logs:CreateLogGroup"
           Effect: "Allow"
         - Resource: !Join
@@ -249,13 +257,6 @@ Resources:
           - "logs:CreateLogStream"
           - "logs:PutLogEvents"
           Effect: "Allow"
-      #Roles:
-      #- "CloudtrailSetup-role-zkreh9rz"
-        #Fn::GetAtt:
-        #- "IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax"
-        #- "Arn"
-        #- Ref: "IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax"
-        #- Ref: "IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole98371b9437764fd7b9c3bf6c2d311d75007RUo0"
       Users: []
   LambdaFunction00CloudtrailSetup008js0b:
     Type: "AWS::Lambda::Function"
@@ -642,9 +643,7 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       ServiceToken: !GetAtt LambdaFunction00CloudtrailSetup008js0b.Arn
-      # You can pass any additional parameters to the Lambda function here
-      # For example:
-      # ParamName: param value
+  
   ################################
   ## Log Retention
   ################################
@@ -855,7 +854,6 @@ Resources:
                   - !Split
                     - "/"
                     - !Ref "AWS::StackId"
-        #- Resource: { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*" }
           Action: "logs:CreateLogGroup"
           Effect: "Allow"
         - Resource: !Join
@@ -875,14 +873,11 @@ Resources:
           - "logs:CreateLogStream"
           - "logs:PutLogEvents"
           Effect: "Allow"
-      #Roles:
-      #- Ref: "IAMRole00CWLogrolekgk39i6m00ZnfTs"
       Users: []
   EventsRule00ruleCWLogGroupCreation00IHTUK:
     Type: "AWS::Events::Rule"
     Properties:
       EventBusName: default
-        #Ref: "EventsEventBus00default00HBVmY"
       EventPattern:
         detail-type:
         - "AWS API Call via CloudTrail"
@@ -899,7 +894,6 @@ Resources:
           - "LambdaFunction00CWLog00Eude6"
           - "Arn"
         Id: "Id452bb793-7ba3-49d8-bc98-ad7b060e42d0"
-      #Id: "CWLog-GroupCreation"
       State: "ENABLED"
       Name: !Join
           - "-"
@@ -913,23 +907,6 @@ Resources:
                   - !Split
                     - "/"
                     - !Ref "AWS::StackId"
-  #EventsEventBus00default00HBVmY:
-    #Type: "AWS::Events::EventBus"
-    #Properties:
-      #Tags: []
-      #Name: default
-      #!Join
-          #- "-"
-          #- - "default"
-            #- !Select
-              #- 0
-              #- !Split
-                #- "-"
-                #- !Select
-                  #- 2
-                  #- !Split
-                    #- "/"
-                    #- !Ref "AWS::StackId"
   LambdaPermission00functionCWLog00RAsbF:
     Type: "AWS::Lambda::Permission"
     Properties:
@@ -939,20 +916,835 @@ Resources:
         - "Arn"
       Action: "lambda:InvokeFunction"
       SourceArn:
-        #Ref: "EventsRule00ruleCWLogGroupCreation00IHTUK"
         Fn::GetAtt:
           - "EventsRule00ruleCWLogGroupCreation00IHTUK"
           - "Arn"
       Principal: "events.amazonaws.com"
 
-# Outputs
-Outputs:
-  LambdaInvocationResult:
-    Value: !Ref InvokeLambda
 
-  ##TestCustomResource:
-    ##Type: "Custom::TestCustomResource"
-    ##Properties:
-      ##ServiceToken: !GetAtt LambdaFunction00CloudtrailSetup008js0b.Arn
-      ###ServiceToken: "ARN of the target Lambda Function"
-      ##Parameter1: "string"
+  ################################
+  ## S3 MPU
+  ################################
+  # Lambda triggered by new S3 bucket creation
+  # Sets Multipart Upload Fragment auto-delete to 7 days
+
+  LambdaFunction00s3mpu00dcscO:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      MemorySize: 128
+      Description: ""
+      TracingConfig:
+        Mode: "PassThrough"
+      Timeout: 120
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: "Auto"
+      Handler: "index.lambda_handler"
+      Code:
+        ZipFile:  |
+          import json
+          import boto3
+          import os
+
+          def lambda_handler(event, context):
+
+            # Print Event Data to see what is coming in
+            print('## EVENT')
+            print(event)
+    
+            ## Collect Bucket Name from Event Data
+            bucket_name = event["detail"]["requestParameters"]["bucketName"]
+            #print(f"bucket_name |{bucket_name}|")
+            #print(bucket_name)
+
+            # Get the region the log was created
+            #aws_region = event.get('awsRegion', 'us-east-1')  # Default to us-east-1 if not provided
+            aws_region = event["detail"]["awsRegion"]
+    
+            #print(f"aws_region |{aws_region}|")
+            #print(aws_region)
+
+            # Create an S3 client
+            s3 = boto3.client('s3', region_name=aws_region)
+
+
+            # Define the lifecycle policy
+
+            lifecycle_policy = {
+
+              "Rules": [
+                {
+                  "ID": "DeleteIncompleteMultipartUploads",
+                  "Filter": {
+                    "Prefix": ""
+                  },
+                  "Status": "Enabled",
+                  "AbortIncompleteMultipartUpload": {
+                    "DaysAfterInitiation": 7
+                  }
+                }
+              ]
+            }
+
+            print(f"Lifecycle Policy: {lifecycle_policy}")
+
+            # Put the lifecycle policy on the bucket
+            try:
+              s3.put_bucket_lifecycle_configuration(
+                Bucket=bucket_name,
+                LifecycleConfiguration=lifecycle_policy
+              )
+        
+              print(f"Bucket Lifecycle policy set to 7 days for bucket: {bucket_name} in region: {aws_region}")
+
+
+            except Exception as e:
+              print(f"Error setting bucket {bucket_name} in region {aws_region} lifecycle policy {lifecycle_policy}: {e}")
+
+            # Return a success message
+            return {
+              'statusCode': 200,
+              'body': json.dumps('Lifecycle policy applied successfully.')
+            }
+
+      Role:
+        Fn::GetAtt:
+        - "IAMRole00s3mpurolei6fy2ubd00BRsq8"
+        - "Arn"
+      FileSystemConfigs: []
+      FunctionName: !Join
+          - "-"
+          - - "s3-mpu"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Runtime: "python3.12"
+      PackageType: "Zip"
+      LoggingConfig:
+        LogFormat: "Text"
+        LogGroup: !Join
+          - "-"
+          - - "/aws/lambda/s3-mpu"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      EphemeralStorage:
+        Size: 512
+      Architectures:
+      - "arm64"
+  EventsRule00ruleNewS3BucketMPUPolicy00vBahT:
+    Type: "AWS::Events::Rule"
+    Properties:
+      EventBusName: "default"
+      EventPattern:
+        detail-type:
+        - "AWS API Call via CloudTrail"
+        source:
+        - "aws.s3"
+        detail:
+          eventSource:
+          - "s3.amazonaws.com"
+          eventName:
+          - "CreateBucket"
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - "LambdaFunction00s3mpu00dcscO"
+          - "Arn"
+        Id: "Id26dbc315-9c08-4a0e-9a45-7a0fa4a62712"
+      Id: "NewS3Bucket_MPU_Policy"
+      State: "ENABLED"
+      Name: !Join
+          - "-"
+          - - "NewS3Bucket_MPU_Policy"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+  IAMRole00s3mpurolei6fy2ubd00BRsq8:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      ManagedPolicyArns:
+      - Ref: "IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole50517fdc1ac14900a0c7c15df978651400wfeXd"
+      MaxSessionDuration: 3600
+      RoleName: !Join
+          - "-"
+          - - "s3-mpu-role"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Policies:
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "s3:ListAllMyBuckets"
+            - "s3:PutLifecycleConfiguration"
+            - "s3:ListBucket"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: !Join
+          - "-"
+          - - "s3-put-lifecycle-policy"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "lambda.amazonaws.com"
+  LambdaPermission00functions3mpu0085RHw:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+        - "LambdaFunction00s3mpu00dcscO"
+        - "Arn"
+      Action: "lambda:InvokeFunction"
+      SourceArn:
+        Fn::GetAtt: 
+          - "EventsRule00ruleNewS3BucketMPUPolicy00vBahT"
+          - "Arn"
+      Principal: "events.amazonaws.com"
+  IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole50517fdc1ac14900a0c7c15df978651400wfeXd:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Join
+          - "-"
+          - - "AWSLambdaBasicExecutionRole-s3mpu"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Path: "/service-role/"
+      Description: ""
+      Groups: []
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource: "arn:aws:logs:us-east-2:905418452255:*"
+          Action: "logs:CreateLogGroup"
+          Effect: "Allow"
+        - Resource: !Join
+          - ""
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/s3-mpu-" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+            - :*
+          Action:
+          - "logs:CreateLogStream"
+          - "logs:PutLogEvents"
+          Effect: "Allow"
+      Users: []
+  S3MPULambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join
+        - "-"
+        - - "/aws/lambda/s3-mpu"
+          - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+
+  ################################
+  # Event Bridge Lambda and Scheduler
+  ################################
+  IAMRole00AmazonEventBridgeInvokeEventBus00BJhmv:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      ManagedPolicyArns:
+      - Ref: "IAMManagedPolicy00policyAmazonEventBridgeInvokeEventBus00SfyQ4"
+      MaxSessionDuration: 3600
+      RoleName: !Join
+          - "-"
+          - - "Amazon_EventBridge_Invoke_Event_Bus"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Description: "Allows EventBridge to access Secrets Manager resources on your\
+        \ behalf."
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "events.amazonaws.com"
+  LambdaFunction00regionaleventbridgerules00mVpfC:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      MemorySize: 128
+      Description: ""
+      TracingConfig:
+        Mode: "PassThrough"
+      Timeout: 120
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: "Auto"
+      Handler: "index.lambda_handler"
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import cfnresponse
+
+          def lambda_handler(event, context):
+
+            session = boto3.Session()
+
+            # Set Stack ID Variable
+            stack_id = str(os.environ.get('STACKID', 'default_value'))
+            account_id = context.invoked_function_arn.split(':')[4]
+            print (f"stack_id {stack_id} account_id {account_id}")
+    
+            # Set CFINVOKE to True if called from CloudFormation
+            CFINVOKE = True if event.get("RequestType") == "Create" else False
+            print(f"Value of CFINVOKE is: {CFINVOKE}")
+
+            # List all enabled regions
+
+            ##enabled_regions = session.get_available_regions('cloudtrail')
+            # Get Enabled Region List
+    
+            # Boto Setup
+            account_client = boto3.client('account')
+            enabled_regions = account_client.list_regions(RegionOptStatusContains=['ENABLED', 'ENABLED_BY_DEFAULT'])
+            print ([x["RegionName"] for x in enabled_regions["Regions"]])
+
+            results = []
+
+    
+            print ("event", event)
+    
+            #local_region = event["detail"]["requestParameters"]["AWS_REGION"]
+            local_region = context.invoked_function_arn.split(':')[3]
+            region=local_region
+            region_name=local_region
+            #local_region=Regions.fromName(System.getenv("AWS_REGION"))
+            print ("local_region", local_region, "region", region)
+    
+            # Iterate over enabled regions (except the local_region)
+            #region_list=[region['RegionName'] for region in enabled_regions if region['RegionName'] != local_region]
+            #region_list=[region["RegionName"] for region in enabled_regions["Regions"] != local_region]
+            region_list=[region["RegionName"] for region in enabled_regions["Regions"]]
+
+    
+            # Get the ARN of the default event bus in the target region
+            eventbridge_source = session.client("events", region_name=local_region)
+            default_event_bus_arn = eventbridge_source.describe_event_bus(Name="default")["Arn"]
+    
+    
+    
+            for target_region in region_list:
+              # Set the target region
+              #target_region = "us-west-2"  # Replace with the desired region
+              if target_region == local_region:
+                # The local region has a different type of Event Bridge Rule
+                print(f"Found local_region {local_region}, skipping it")
+                continue
+
+              # Create a Session object and an EventBridge client for the target region
+              eventbridge = session.client("events", region_name=target_region)
+
+              try:
+                # List the EventBridge rules in the target region
+                rules = eventbridge.list_rules()
+
+                # Search for the rules
+                rule_found_s3_mpu = False
+                rule_found_cw_log = False
+
+                for rule in rules["Rules"]:
+                  if rule["Name"] == f"s3-mpu-{stack_id}":
+                    rule_found_s3_mpu = True
+                    rule_arn = rule["Arn"]
+                    print(f"Found EventBridge Rule '{rule['Name']}' with ARN: {rule_arn}")
+
+                  elif rule["Name"] == f"cw-log-{stack_id}":
+                    rule_found_cw_log = True
+                    rule_arn = rule["Arn"]
+                    print(f"Found EventBridge Rule '{rule['Name']}' with ARN: {rule_arn}")
+
+                # Add rules if they don't exist
+                if not rule_found_s3_mpu:
+                  print(f"EventBridge Rule 's3-mpu-{stack_id}' not found. Creating the rule...")
+                  s3_mpu_rule = eventbridge.put_rule(
+                    Name=f"s3-mpu-{stack_id}",
+                    EventPattern='{"source":["aws.s3"],"detail-type":["AWS API Call via CloudTrail"],"detail":{"eventSource":["s3.amazonaws.com"],"eventName":["CreateBucket"]}}',
+                    State="ENABLED"
+                  )
+
+                  # Create the target for the rule (default event bus)
+                  eventbridge.put_targets(
+                    Rule=f"s3-mpu-{stack_id}",
+                    Targets=[
+                        {
+                            "Id": "s3-mpu-default-bus-target",
+                            "Arn": default_event_bus_arn,
+                            "RoleArn": f"arn:aws:iam::{account_id}:role/Amazon_EventBridge_Invoke_Event_Bus-{stack_id}"
+                        }
+                    ]
+                  )
+
+                  print(f"Added target {default_event_bus_arn} (default event bus) to the EventBridge Rule (s3-mpu-{stack_id}) in Region {target_region}")
+            
+
+                if not rule_found_cw_log:
+                  print(f"EventBridge Rule 'cw-log-{stack_id}' not found. Creating the rule...")
+                  cw_log_rule = eventbridge.put_rule(
+                    Name=f"cw-log-{stack_id}",
+                    EventPattern='{"source": ["aws.logs"],"detail-type": ["AWS API Call via CloudTrail"],"detail": {"eventSource": ["logs.amazonaws.com"],"eventName": ["CreateLogGroup"]}}',
+                    State="ENABLED"
+                  )
+                
+                  # Create teh target for the rule (default event bus)
+                  eventbridge.put_targets(
+                    Rule=f"cw-log-{stack_id}",
+                    Targets=[
+                        {
+                            "Id": "cw-log-default-bus-target",
+                            "Arn": default_event_bus_arn,
+                            "RoleArn": f"arn:aws:iam::{account_id}:role/Amazon_EventBridge_Invoke_Event_Bus-{stack_id}"
+                        }
+                    ]
+                  )
+
+                  print(f"Added target {default_event_bus_arn} (default event bus) to the EventBridge Rule (cw-log-{stack_id}) in Region {target_region}")
+
+
+              except Exception as e:
+                print(f"An error occurred: {e}")
+
+
+            if CFINVOKE == True:
+              print(f"CFINVOKE is {CFINVOKE}, responding with cfnresponse")
+              responseData = {'statusCode': 200, 'body': results}
+              print(f"Results  OK {results}")
+              #cfnresponse.send(event, context, cfnresponse.SUCCESS)
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "Success: {results}")
+              #cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+
+            else:
+              print(f"CFINVOKE is {CFINVOKE}, respnding with Normal Lambda resopnse")
+
+              #return results
+              return {
+                'statusCode': 200,
+                'body': (results)
+              }
+
+## End Lambda Code
+
+      Role:
+        Fn::GetAtt:
+        - "IAMRole00regionaleventbridgerulesrole7pggextm00xqZ63"
+        - "Arn"
+      FileSystemConfigs: []
+      FunctionName: !Join
+          - "-"
+          - - "regional-eventbridge-rules"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Runtime: "python3.12"
+      PackageType: "Zip"
+      LoggingConfig:
+        LogFormat: "Text"
+        LogGroup: !Join
+          - "-"
+          - - "/aws/lambda/regional-eventbridge-rules"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Environment:
+        Variables:
+          STACKID: !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      EphemeralStorage:
+        Size: 512
+      Architectures:
+      - "arm64"
+  IAMManagedPolicy00policyAmazonEventBridgeInvokeEventBus00SfyQ4:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Join
+          - "-"
+          - - "Amazon_EventBridge_Invoke_Event_Bus"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Path: "/"
+      Description: ""
+      Groups: []
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource:
+          - { "Fn::Sub": "arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default" }
+          Action:
+          - "events:PutEvents"
+          Effect: "Allow"
+      Users: []
+  IAMRole00regionaleventbridgerulesrole7pggextm00xqZ63:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      ManagedPolicyArns:
+      - Ref: "IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRoled04bfa58ae634c17b6ad5808bc41ef0c00EPAny"
+      MaxSessionDuration: 3600
+      RoleName: !Join
+          - "-"
+          - - "regional-eventbridge-rules-role"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Policies:
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Action:
+            - "events:PutRule"
+            - "events:ListRules"
+            - "events:DescribeEventBus"
+            - "events:PutTargets"
+            - "account:ListRegions"
+            Effect: "Allow"
+            Sid: "VisualEditor0"
+        PolicyName: !Join
+          - "-"
+          - - "EventBridge-Rules"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      - PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: !Join
+            - "-"
+            - - { "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:role/Amazon_EventBridge_Invoke_Event_Bus" }
+              - !Select
+                - 0
+                - !Split
+                  - "-"
+                  - !Select
+                    - 2
+                    - !Split
+                      - "/"
+                      - !Ref "AWS::StackId"
+            Action: "iam:PassRole"
+            Effect: "Allow"
+            Sid: "Statement1"
+        PolicyName: !Join
+          - "-"
+          - - "iam-pass-role"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "lambda.amazonaws.com"
+  IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRoled04bfa58ae634c17b6ad5808bc41ef0c00EPAny:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Join
+          - "-"
+          - - "AWSLambdaBasicExecutionRole-region-eventbridge"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Path: "/service-role/"
+      Description: ""
+      Groups: []
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource: !Join
+          - "-"
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:regional-eventbridge-rules" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+          Action: "logs:CreateLogGroup"
+          Effect: "Allow"
+        - Resource: !Join
+          - ""
+          - - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/regional-eventbridge-rules-" }
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+            - :*
+          Action:
+          - "logs:CreateLogStream"
+          - "logs:PutLogEvents"
+          Effect: "Allow"
+      Users: []
+
+  LogGroupRetentionEventBridge:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join
+          - "-"
+          - - "/aws/lambda/regional-eventbridge-rules"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      RetentionInDays: 30
+
+## ** Setup scheduled regular run of the Lambda **
+  EventBridgeLambdaSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      ScheduleExpression: { "Fn::Sub": "rate(${EventBridgeRate} ${EventBridgeNumber})" }
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target: 
+        Arn:
+          Fn::GetAtt:
+          - "LambdaFunction00regionaleventbridgerules00mVpfC"
+          - "Arn"
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 600
+          MaximumRetryAttempts: 5
+        RoleArn:
+          Fn::GetAtt:
+          - "IAMRole00AmazonEventBridgeSchedulerLAMBDA3df7113eb000rjDFv"
+          - "Arn"
+      Description: ""
+      State: "ENABLED"
+      ScheduleExpressionTimezone: "UTC"
+      Name: !Join
+          - "-"
+          - - "event-bridge-lambda-schedule"        
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+
+  IAMRole00AmazonEventBridgeSchedulerLAMBDA3df7113eb000rjDFv:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      ManagedPolicyArns:
+      - Ref: "IAMManagedPolicy00policyserviceroleAmazonEventBridgeSchedulerExecutionPolicy714f25fe69864c4c8433c217933fa6ed00cmH44"
+      MaxSessionDuration: 3600
+      RoleName: !Join
+          - "-"
+          - - "Amazon_EventBridge_Scheduler_LAMBDA"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Condition:
+            StringEquals:
+              aws:SourceAccount: {"Fn::Sub": "${AWS::AccountId}" }
+          Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "scheduler.amazonaws.com"
+
+  IAMManagedPolicy00policyserviceroleAmazonEventBridgeSchedulerExecutionPolicy714f25fe69864c4c8433c217933fa6ed00cmH44:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Join
+          - "-"
+          - - "Amazon-EventBridge-Scheduler-Execution-Policy"
+            - !Select
+              - 0
+              - !Split
+                - "-"
+                - !Select
+                  - 2
+                  - !Split
+                    - "/"
+                    - !Ref "AWS::StackId"
+      Path: "/service-role/"
+      Description: ""
+      Groups: []
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Resource:
+          - !Join
+            - ""
+            - - { "Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:regional-eventbridge-rules-" }
+              - !Select
+                - 0
+                - !Split
+                  - "-"
+                  - !Select
+                    - 2
+                    - !Split
+                      - "/"
+                      - !Ref "AWS::StackId"
+              - :*
+          - !Join
+            - ""
+            - - { "Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:regional-eventbridge-rules-" }
+              - !Select
+                - 0
+                - !Split
+                  - "-"
+                  - !Select
+                    - 2
+                    - !Split
+                      - "/"
+                      - !Ref "AWS::StackId"
+          Action:
+          - "lambda:InvokeFunction"
+          Effect: "Allow"
+      Users: []
+
+## Invoke at CFN creation 
+  InvokeLambdaEventBridge:
+    Type: AWS::CloudFormation::CustomResource
+    DeletionPolicy: Retain
+    Properties:
+      ServiceToken: !GetAtt LambdaFunction00regionaleventbridgerules00mVpfC.Arn
+
+# Outputs
+#Outputs:
+  #LambdaInvocationResult:
+    #Value: !Ref InvokeLambda
+    #Value: !Ref InvokeLambdaEventBridge
