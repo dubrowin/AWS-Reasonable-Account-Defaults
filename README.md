@@ -1,9 +1,7 @@
 # AWS-Reasonable-Account-Defaults
 
 I had a friend ask me recently what his son/daughter should do to their AWS account if they wanted to stay on the free tier.
-I explained some basics of free tier, but it got me thinking about “rational” AWS account defaults.
-
-Currently, the CloudFormation template creates Cost Anomaly Detection Monitors and Subscriptions. And it creates 2 Budgets. One budget is static based on a given input at the time of the CloudFormation Template stack creation and the other is a dynamic (Auto Adjusting) budget based on the previous 6 months of usage.
+I explained some basics of free tier, but it got me thinking about “rational” AWS account defaults. This project is the culmination of 2 re:Invent chalk talks on "Ways to Avoid Cost Surprises" and the work I've done with startups around cost optimization. My expectation is that these resources should be a good start toward being alerted if and when costs are accumulating in an AWS account.
 
 ## Where to Deploy
 Most of the services used by this CloudFormation are deployed in all regions, but I have found that AWS Budgets and Amazon EventBridge Scheduler are not deployed in all regions. Therefore, you should choose a region that has both of these. You can check availability for [AWS Budgets](https://www.aws-services.info/budgets.html) and [Amazon EventBridge Scheduler](https://www.aws-services.info/scheduler.html).
