@@ -5,6 +5,11 @@ I explained some basics of free tier, but it got me thinking about â€œrationalâ€
 
 Currently, the CloudFormation template creates Cost Anomaly Detection Monitors and Subscriptions. And it creates 2 Budgets. One budget is static based on a given input at the time of the CloudFormation Template stack creation and the other is a dynamic (Auto Adjusting) budget based on the previous 6 months of usage.
 
+## Where to Deploy
+Most of the services used by this CloudFormation are deployed in all regions, but I have found that AWS Budgets and Amazon EventBridge Scheduler are not deployed in all regions. Therefore, you should choose a region that has both of these. You can check availability for [AWS Budgets](https://www.aws-services.info/budgets.html) and [Amazon EventBridge Scheduler](https://www.aws-services.info/scheduler.html).
+
+Deploying in the older regions like us-east-1 (Virginia), us-east-2 (Ohio), us-west-2 (Oregon), or eu-west-1 (Ireland) should not be a problem.
+
 ## Invocation
 
 - [Download the CloudFormation Template](https://github.com/dubrowin/AWS-Reasonable-Account-Defaults/blob/main/account-default-project-OVERALL.yaml)
