@@ -91,6 +91,19 @@ Deploying in the older regions like us-east-1 (Virginia), us-east-2 (Ohio), us-w
 - Multi-Region / New Region Activation
   - In order for CloudWatch Log Groups and S3 Buckets created in regions other than the primary deployment to trigger the Lambdas, Event Bridge rules are deployed to all enabled regions by a Lambda.
   - The Lambda goes through all enabled regions other than the primary deployed region and if the Event Bridge forwarding rules are found, does nothing. If rules are not found, it creates them. This Lambda is scheduled to run regularly (as defined in the parameters) so that it will catch any newly enabled regions.
+ 
+## Linked Accounts and AWS Organizations
+If you are deploying on a linked account (a member of an AWS Organization, formerly called a child account) and your AWS Organization is using Service Control Policies (SCPs) and they have implemented the general example *Deny access to AWS based on the requested AWS Region* from the AWS Documentation, then you will need to add some Actions to the **NotAction** group.
+
+- "cloudtrail:*",
+- "events:ListRules*",
+- "events:PutRule*",
+- "events:DeleteRule*",
+- "events:PutTargets*",
+- "events:RemoveTargets*",
+- "events:ListTargetsByRule*",
+
+These actions are used by 2 of the Lambdas in order to check for CloudTrail Trails in all the enabled regions and to push Event Bridge rules to collect events on CloudWatch Log Group creation and S3 Bucket creation.
    
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
