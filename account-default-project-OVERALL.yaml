@@ -542,6 +542,11 @@ Resources:
         Size: 512
       Architectures:
       - "arm64"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: "Lambda has permission to write to CloudWatch Logs"  
   LogGroupRetention:
     Type: "AWS::Logs::LogGroup"
     Properties:
@@ -557,7 +562,7 @@ Resources:
                   - !Split
                     - "/"
                     - !Ref "AWS::StackId"
-      RetentionInDays: 30
+      RetentionInDays: !Ref LogRetentionDays
   IAMRole00CloudtrailSetuprolezkreh9rz00NZ1ax:
     Type: "AWS::IAM::Role"
     Properties:
@@ -603,7 +608,8 @@ Resources:
       - PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - Resource: "*"
+          - Resource: 
+            - { "Fn::Sub": "arn:aws:account::${AWS::AccountId}:*" }
             Action: "account:ListRegions"
             Effect: "Allow"
             Sid: "VisualEditor0"
@@ -622,7 +628,8 @@ Resources:
       - PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - Resource: "*"
+          - Resource: 
+            - "arn:aws:s3:::*"
             Action:
             - "s3:PutBucketAcl"
             - "s3:CreateBucket"
@@ -670,7 +677,8 @@ Resources:
       - PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - Resource: "*"
+          - Resource: 
+            - {"Fn::Sub": "arn:aws:logs:*:${AWS::AccountId}:log-group:*" }
             Action:
             - "logs:DescribeLogGroups"
             - "logs:PutRetentionPolicy"
@@ -821,6 +829,11 @@ Resources:
         Size: 512
       Architectures:
       - "arm64"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: "Lambda has permission to write to CloudWatch Logs"  
   IAMManagedPolicy00policyserviceroleAWSLambdaBasicExecutionRole05ae902e82be47b29f6df4adf563457e00HVNll:
     Type: "AWS::IAM::ManagedPolicy"
     Properties:
@@ -1043,6 +1056,11 @@ Resources:
         Size: 512
       Architectures:
       - "arm64"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: "Lambda has permission to write to CloudWatch Logs"  
   EventsRule00ruleNewS3BucketMPUPolicy00vBahT:
     Type: "AWS::Events::Rule"
     Properties:
@@ -1100,7 +1118,8 @@ Resources:
       - PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - Resource: "*"
+          - Resource: 
+            - "arn:aws:s3:::*"
             Action:
             - "s3:ListAllMyBuckets"
             - "s3:PutLifecycleConfiguration"
@@ -1160,7 +1179,8 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-        - Resource: "arn:aws:logs:us-east-2:905418452255:*"
+        - Resource: 
+          - { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*" }
           Action: "logs:CreateLogGroup"
           Effect: "Allow"
         - Resource: !Join
@@ -1196,6 +1216,7 @@ Resources:
                 - !Split
                   - "/"
                   - !Ref "AWS::StackId"
+      RetentionInDays: !Ref LogRetentionDays
 
   ################################
   # Event Bridge Lambda and Scheduler
@@ -1440,6 +1461,11 @@ Resources:
         Size: 512
       Architectures:
       - "arm64"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: "Lambda has permission to write to CloudWatch Logs"
   IAMManagedPolicy00policyAmazonEventBridgeInvokeEventBus00SfyQ4:
     Type: "AWS::IAM::ManagedPolicy"
     Properties:
@@ -1490,7 +1516,10 @@ Resources:
       - PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - Resource: "*"
+          - Resource: 
+            - { "Fn::Sub": "arn:aws:events:*:${AWS::AccountId}:rule/*" }
+            - { "Fn::Sub": "arn:aws:events:*:${AWS::AccountId}:event-bus/default" }
+            - { "Fn::Sub": "arn:aws:account::${AWS::AccountId}:*" }
             Action:
             - "events:PutRule"
             - "events:ListRules"
