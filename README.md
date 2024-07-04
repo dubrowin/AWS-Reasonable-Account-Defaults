@@ -104,6 +104,12 @@ If you are deploying on a linked account (a member of an AWS Organization, forme
 - "events:ListTargetsByRule*",
 
 These actions are used by 2 of the Lambdas in order to check for CloudTrail Trails in all the enabled regions and to push Event Bridge rules to collect events on CloudWatch Log Group creation and S3 Bucket creation.
+
+## Costs
+
+The resources deployed should have little to no costs. The Lambdas only run occassionally and therefore should not incur a cost under normal load and usage.
+The Budgets and Cost Anomaly Detection should also not incur costs.
+The CloudTrail that gets created should not have a direct cost since it should be the 1 Trail which supplied under the Free Tier. However, I have seen during my testing, S3 request costs for the CloudTrail logs being pushed into S3. In my test account, I saw up to $0.02 per day. 
    
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
@@ -115,7 +121,12 @@ These actions are used by 2 of the Lambdas in order to check for CloudTrail Trai
 - ~~Implement a Lambda to run weekly (configurable) that will push the previous 2 Event Bridge rules to any newly activated region~~ - Done
 - Testing ability
   - automate the testing and cleanup of the resources deployed
+- Delete Everything
+  - Since there are 2 Lambdas that could possibly create resources outside of CloudFormation, there is the possability that when the CloudFormation stack is deleted, those resources will remain.
+   - If the Lambda creates the CloudTrail Trail and the corresponding S3 Bucket, those will remain if the stack is deleted.
+   - The Event Bridge Rule Lambda that pushes event passing rules to all enabled regions for S3 Bucket Creation and CloudWatch Log Group Creation will remain, but the Lambdas they trigger will no longer be there after the stack is deleted.
 - IAM Security Hardening
- - go through all the IAM permissions created and ensure they are only allowing required permissions and are scope limited to the required resources.
+ - ~~go through all the IAM permissions created and ensure they are only allowing required permissions and are scope limited to the required resources.~~
+   - I did this, but have 1 IAM permission that I have not yet successfully limited the scope on.
 - Resource Tagging
  - automatically add the CloudFormation Name and StackID to all created resources and all derivative resources
