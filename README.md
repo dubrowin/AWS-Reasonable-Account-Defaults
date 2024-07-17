@@ -1,6 +1,6 @@
 # AWS-Reasonable-Account-Defaults
 
-I had a friend ask me recently what his son/daughter should do to their AWS account if they wanted to stay on the free tier.
+I had a friend ask me recently what his child should do to their AWS account if they wanted to stay on the free tier.
 I explained some basics of free tier, but it got me thinking about “rational” AWS account defaults. This project is the answer to my friend's question. Something substantial that he can give to his son/daughter.
 Based on 2 re:Invent chalk talks on "Ways to Avoid Cost Surprises" and the work I've done with startups around cost optimization, I've put together this CloudFormation Template. My expectation is that these resources should be a good start toward being alerted if and when costs are accumulating in an AWS account.
 
