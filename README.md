@@ -134,6 +134,8 @@ If the CloudFormation deployment encounters an error, the default behavior is fo
     - If the subscription is anything else, **STOP** and verify outside the account where this monitor may have come from.
    - In the Cost Monitors tab, delete the monitor. 
 
+## Media
+- [Ways to avoid cost surprises | The Keys to AWS Optimization | S10 E7](https://www.youtube.com/watch?v=xySsvqZzoqQ)
        
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
