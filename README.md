@@ -122,9 +122,12 @@ The CloudTrail that gets created should not have a direct cost since it should b
 
 ## Known Issues
 
-- **Error:** ```User not enabled for cost explorer access```
+If the CloudFormation deployment encounters an error, the default behavior is for the process to rollback. If it rolls back, in the Events tab, you can find the probably root cause by clicking the ```Detect root cause``` button. Look on the right side of the Events table for an error.
+
+- **CloudFormation Error AnomalyMonitor:** ```User not enabled for cost explorer access```
   - If you are using the ```root``` user, you will need to [enable billing access](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_billing.html). It is [**NOT** recommended](https://github.com/dubrowin/AWS-Reasonable-Account-Defaults/edit/main/README.md#iam-user-or-sso-user) to use the ```root``` user to deploy this CloudFormation Template.
-- **Error:** ```Limit exceeded on dimensional spend monitor creation```
+    
+- **CloudFormation Error AnomalyMonitor:** ```Limit exceeded on dimensional spend monitor creation```
   - If you already have a Cost Anomaly Detection Monitor for All Services, then you cannot deploy a second one.
   - To enable the CloudFormation Template, you will need to, in the AWS Console, go to the Cost Anomaly Detection service --> Alert Subscriptions
     - If the subscription is for $100 or 40%, this is the default monitor.
