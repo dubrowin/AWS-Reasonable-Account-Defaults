@@ -11,6 +11,15 @@ Deploying in the older regions like us-east-1 (Virginia), us-east-2 (Ohio), us-w
 
 ## Invocation
 
+### IAM User or SSO User
+
+It is recommended to **NOT** use the ```root``` user to deploy this CloudFormation template. Either [create an IAM User](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html) including MFA and the AWS Managed IAM Policy ```AdministratorAccess``` or [create an Identity Center (SSO) User](https://docs.aws.amazon.com/singlesignon/latest/userguide/addusers.html) including MFA and the AWS Managed IAM Policy ```AdministratorAccess```. It is best security practice to enable MFA even if using an app on your smartphone like Google Authenticator. Preventing unwanted access to your account is step 1 in preventing unexpected costs.
+
+**NOTE:** Using Identity Center (SSO) will be more useful if you have multiple users and/or accounts, but requires a little more investment to setup. Creating an IAM User is easier, but less scalable across accounts.
+
+### Creating the Stack
+
+
 - [Download the CloudFormation Template](https://github.com/dubrowin/AWS-Reasonable-Account-Defaults/blob/main/account-default-project-OVERALL.yaml)
 - Go to CloudFormation in the AWS Console
 
