@@ -119,7 +119,19 @@ These actions are used by 2 of the Lambdas in order to check for CloudTrail Trai
 The resources deployed should have little to no costs. The Lambdas only run occassionally and therefore should not incur a cost under normal load and usage.
 The Budgets and Cost Anomaly Detection should also not incur costs.
 The CloudTrail that gets created should not have a direct cost since it should be the 1 Trail which supplied under the Free Tier. However, I have seen during my testing, S3 request costs for the CloudTrail logs being pushed into S3. In my test account, I saw up to $0.02 per day. 
-   
+
+## Known Issues
+
+- **Error:** ```User not enabled for cost explorer access```
+  - If you are using the ```root``` user, you will need to [enable billing access](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_billing.html). It is [**NOT** recommended](https://github.com/dubrowin/AWS-Reasonable-Account-Defaults/edit/main/README.md#iam-user-or-sso-user) to use the ```root``` user to deploy this CloudFormation Template.
+- **Error:** ```Limit exceeded on dimensional spend monitor creation```
+  - If you already have a Cost Anomaly Detection Monitor for All Services, then you cannot deploy a second one.
+  - To enable the CloudFormation Template, you will need to, in the AWS Console, go to the Cost Anomaly Detection service --> Alert Subscriptions
+    - If the subscription is for $100 or 40%, this is the default monitor.
+    - If the subscription is anything else, **STOP** and verify outside the account where this monitor may have come from.
+   - In the Cost Monitors tab, delete the monitor. 
+
+       
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
 - ~~A Cloudtrail trail is required by the Lambdas below. So I have created a Lambda that runs once and checks if there is a Cloudtrail Trail enabled. If not, it will create it.~~ - Done
