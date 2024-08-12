@@ -136,6 +136,7 @@ If the CloudFormation deployment encounters an error, the default behavior is fo
 
 ## Media
 - [Ways to avoid cost surprises | The Keys to AWS Optimization | S10 E7](https://www.youtube.com/watch?v=xySsvqZzoqQ)
+- [Last week in AWS Newsletter, Tools Section](https://www.lastweekinaws.com/newsletter/im-gone-like-qldb/)
        
 ## Next Steps
 - ~~Have an option for non-student/non-free-tier accounts that splits out the fixed budget and cost anomaly detector thresholds~~ - Done
