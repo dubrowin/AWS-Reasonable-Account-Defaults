@@ -5,7 +5,8 @@ Description: Reasonable Account Defaults
 Parameters:
   EmailParam:
     Type: String
-    AllowedPattern: ^[a-zA-Z0-9]*@[a-zA-Z0-9]*.[a-zA-Z]*$
+    AllowedPattern: ^[a-zA-Z0-9.*%±+]*@[a-zA-Z0-9.-]*.[a-zA-Z]*$
+    # AllowedPattern: ^[a-zA-Z0-9]*@[a-zA-Z0-9]*.[a-zA-Z]*$
   AlertThresholdParam:
     Type: Number
     Default: 0.01
